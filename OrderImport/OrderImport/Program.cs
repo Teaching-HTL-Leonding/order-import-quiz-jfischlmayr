@@ -5,8 +5,33 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.IO;
+using System.Linq;
 
-Console.WriteLine("test");
+
+    var factory = new OrderSystemContextFactory();
+    using var context = factory.CreateDbContext(args);
+
+    var customerLines = await File.ReadAllLinesAsync("customers.txt");
+    var orderLines = await File.ReadAllLinesAsync("orders.txt");
+
+    foreach (var customer in customerLines.Skip(1))
+    {
+        var splitLine = customer.Split("\t");
+        await context.AddAsync(new Customer { Name = splitLine[0], CreditLimit = decimal.Parse(splitLine[1]) });
+    }
+await context.SaveChangesAsync();
+Console.WriteLine("Added customers");
+
+foreach (var order in orderLines.Skip(1))
+{
+    var splitLine = order.Split("\t");
+    await context.AddAsync(new Order { CustomerId = context.Customer.Where(c => c.Name == splitLine[0]).ToArray()[0].Id, 
+        OrderDate = DateTime.Parse(splitLine[1]), OrderValue = decimal.Parse(splitLine[2]) });
+}
+await context.SaveChangesAsync();
+Console.WriteLine("Added orders");
+
 
 //Create the model class
 
@@ -17,6 +42,7 @@ class Customer
     public string Name { get; set; } = "default";
     [Column(TypeName = "decimal(8, 2)")]
     public decimal CreditLimit { get; set; }
+    public List<Order>? Orders { get; set; }
 }
 
 class Order
@@ -31,7 +57,6 @@ class Order
 class OrderSystemContext : DbContext
 {
     public DbSet<Customer> Customer { get; set; }
-
     public DbSet<Order> Orders { get; set; }
 #pragma warning disable CS8618 // Ein Non-Nullable-Feld muss beim Beenden des Konstruktors einen Wert ungleich NULL enthalten. Erwägen Sie die Deklaration als Nullable.
     public OrderSystemContext(DbContextOptions<OrderSystemContext> options)
