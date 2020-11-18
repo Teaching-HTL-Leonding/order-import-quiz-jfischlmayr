@@ -1,0 +1,4 @@
+Name	CreditLimit
+Jan Fischlmayr	10000
+David Kraus	5000
+Christoph Aichinger	2000
