@@ -9,7 +9,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
-if (args.Length != 1)
+if (args.Length == 0)
 {
     Console.Error.WriteLine("Invalid arguments!");
 }
@@ -59,8 +59,8 @@ class Manager
 
     public async Task Import(string[] args)
     {
-        var customerLines = await File.ReadAllLinesAsync("customers.txt");
-        var orderLines = await File.ReadAllLinesAsync("orders.txt");
+        var customerLines = await File.ReadAllLinesAsync(args[1]);
+        var orderLines = await File.ReadAllLinesAsync(args[2]);
 
         foreach (var customer in customerLines.Skip(1))
         {
