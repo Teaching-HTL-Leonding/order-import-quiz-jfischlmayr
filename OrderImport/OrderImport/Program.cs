@@ -45,6 +45,7 @@ else
             await context.SaveChangesAsync();
             Console.WriteLine("Added orders");
             break;
+
         //Removing all rows in the tables "Customer" and "Orders"
         case "clean":
             foreach (var customer in context.Customer)
@@ -57,6 +58,18 @@ else
             }
             await context.SaveChangesAsync();
             Console.WriteLine("Cleaned the database!");
+            break;
+
+        case "check":
+            var orders = await context.Orders.ToListAsync();
+            foreach (var customer in context.Customer)
+            {
+                var orderSum = orders.Where(c => customer.Id == c.CustomerId).Sum(o => o.OrderValue);
+                if (orderSum > customer.CreditLimit)
+                {
+                    Console.WriteLine($"The customer {customer.Name} with ID {customer.Id} exceeded his limit of {customer.CreditLimit} by {orderSum - customer.CreditLimit}");
+                }
+            }
             break;
         default:
             break;
