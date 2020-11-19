@@ -19,6 +19,7 @@ else
 
     switch (args[0])
     {
+        //Importing data from files
         case "import":
             var customerLines = await File.ReadAllLinesAsync("customers.txt");
             var orderLines = await File.ReadAllLinesAsync("orders.txt");
@@ -44,7 +45,19 @@ else
             await context.SaveChangesAsync();
             Console.WriteLine("Added orders");
             break;
-
+        //Removing all rows in the tables "Customer" and "Orders"
+        case "clean":
+            foreach (var customer in context.Customer)
+            {
+                context.Remove(customer);
+            }
+            foreach (var order in context.Orders)
+            {
+                context.Remove(order);
+            }
+            await context.SaveChangesAsync();
+            Console.WriteLine("Cleaned the database!");
+            break;
         default:
             break;
     }
