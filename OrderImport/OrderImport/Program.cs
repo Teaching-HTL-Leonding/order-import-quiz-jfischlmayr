@@ -7,6 +7,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 
 if (args.Length != 1)
 {
@@ -17,65 +18,98 @@ else
     var factory = new OrderSystemContextFactory();
     using var context = factory.CreateDbContext(args);
 
+    Manager manager = new Manager(context);
+
     switch (args[0])
     {
         //Importing data from files
         case "import":
-            var customerLines = await File.ReadAllLinesAsync("customers.txt");
-            var orderLines = await File.ReadAllLinesAsync("orders.txt");
-
-            foreach (var customer in customerLines.Skip(1))
-            {
-                var splitLine = customer.Split("\t");
-                await context.AddAsync(new Customer { Name = splitLine[0], CreditLimit = decimal.Parse(splitLine[1]) });
-            }
-            await context.SaveChangesAsync();
-            Console.WriteLine("Added customers");
-
-            foreach (var order in orderLines.Skip(1))
-            {
-                var splitLine = order.Split("\t");
-                await context.AddAsync(new Order
-                {
-                    CustomerId = context.Customer.Where(c => c.Name == splitLine[0]).ToArray()[0].Id,
-                    OrderDate = DateTime.Parse(splitLine[1]),
-                    OrderValue = decimal.Parse(splitLine[2])
-                });
-            }
-            await context.SaveChangesAsync();
-            Console.WriteLine("Added orders");
+            await manager.Import(args);
             break;
 
         //Removing all rows in the tables "Customer" and "Orders"
         case "clean":
-            foreach (var customer in context.Customer)
-            {
-                context.Remove(customer);
-            }
-            foreach (var order in context.Orders)
-            {
-                context.Remove(order);
-            }
-            await context.SaveChangesAsync();
-            Console.WriteLine("Cleaned the database!");
+            await manager.Clean();
             break;
 
         case "check":
-            var orders = await context.Orders.ToListAsync();
-            foreach (var customer in context.Customer)
-            {
-                var orderSum = orders.Where(c => customer.Id == c.CustomerId).Sum(o => o.OrderValue);
-                if (orderSum > customer.CreditLimit)
-                {
-                    Console.WriteLine($"The customer {customer.Name} with ID {customer.Id} exceeded his limit of {customer.CreditLimit} by {orderSum - customer.CreditLimit}");
-                }
-            }
+            await manager.Check();
+            break;
+
+        //First clearing the database then importing data and searching for limit exceeds
+        case "full":
+            await manager.Clean();
+            await manager.Import(args);
+            await manager.Check();
             break;
         default:
             break;
     }
 
     
+}
+class Manager
+{
+    public Manager(OrderSystemContext context)
+    {
+        Context = context;
+    }
+
+    public OrderSystemContext Context { get; }
+
+    public async Task Import(string[] args)
+    {
+        var customerLines = await File.ReadAllLinesAsync("customers.txt");
+        var orderLines = await File.ReadAllLinesAsync("orders.txt");
+
+        foreach (var customer in customerLines.Skip(1))
+        {
+            var splitLine = customer.Split("\t");
+            await Context.AddAsync(new Customer { Name = splitLine[0], CreditLimit = decimal.Parse(splitLine[1]) });
+        }
+        await Context.SaveChangesAsync();
+        Console.WriteLine("Added customers");
+
+        foreach (var order in orderLines.Skip(1))
+        {
+            var splitLine = order.Split("\t");
+            await Context.AddAsync(new Order
+            {
+                CustomerId = Context.Customer.Where(c => c.Name == splitLine[0]).ToArray()[0].Id,
+                OrderDate = DateTime.Parse(splitLine[1]),
+                OrderValue = decimal.Parse(splitLine[2])
+            });
+        }
+        await Context.SaveChangesAsync();
+        Console.WriteLine("Added orders");
+    }
+
+    public async Task Clean()
+    {
+        foreach (var customer in Context.Customer)
+        {
+            Context.Remove(customer);
+        }
+        foreach (var order in Context.Orders)
+        {
+            Context.Remove(order);
+        }
+        await Context.SaveChangesAsync();
+        Console.WriteLine("Cleaned the database!");
+    }
+
+    public async Task Check()
+    {
+        var orders = await Context.Orders.ToListAsync();
+        foreach (var customer in Context.Customer)
+        {
+            var orderSum = orders.Where(c => customer.Id == c.CustomerId).Sum(o => o.OrderValue);
+            if (orderSum > customer.CreditLimit)
+            {
+                Console.WriteLine($"The customer {customer.Name} with ID {customer.Id} exceeded his limit of {customer.CreditLimit} by {orderSum - customer.CreditLimit}");
+            }
+        }
+    }
 }
 
 //Create the model class
