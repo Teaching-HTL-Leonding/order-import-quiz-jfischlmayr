@@ -8,30 +8,49 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.IO;
 using System.Linq;
 
-
+if (args.Length != 1)
+{
+    Console.Error.WriteLine("Invalid arguments!");
+}
+else
+{
     var factory = new OrderSystemContextFactory();
     using var context = factory.CreateDbContext(args);
 
-    var customerLines = await File.ReadAllLinesAsync("customers.txt");
-    var orderLines = await File.ReadAllLinesAsync("orders.txt");
-
-    foreach (var customer in customerLines.Skip(1))
+    switch (args[0])
     {
-        var splitLine = customer.Split("\t");
-        await context.AddAsync(new Customer { Name = splitLine[0], CreditLimit = decimal.Parse(splitLine[1]) });
+        case "import":
+            var customerLines = await File.ReadAllLinesAsync("customers.txt");
+            var orderLines = await File.ReadAllLinesAsync("orders.txt");
+
+            foreach (var customer in customerLines.Skip(1))
+            {
+                var splitLine = customer.Split("\t");
+                await context.AddAsync(new Customer { Name = splitLine[0], CreditLimit = decimal.Parse(splitLine[1]) });
+            }
+            await context.SaveChangesAsync();
+            Console.WriteLine("Added customers");
+
+            foreach (var order in orderLines.Skip(1))
+            {
+                var splitLine = order.Split("\t");
+                await context.AddAsync(new Order
+                {
+                    CustomerId = context.Customer.Where(c => c.Name == splitLine[0]).ToArray()[0].Id,
+                    OrderDate = DateTime.Parse(splitLine[1]),
+                    OrderValue = decimal.Parse(splitLine[2])
+                });
+            }
+            await context.SaveChangesAsync();
+            Console.WriteLine("Added orders");
+            break;
+
+        default:
+            break;
     }
-await context.SaveChangesAsync();
-Console.WriteLine("Added customers");
 
-foreach (var order in orderLines.Skip(1))
-{
-    var splitLine = order.Split("\t");
-    await context.AddAsync(new Order { CustomerId = context.Customer.Where(c => c.Name == splitLine[0]).ToArray()[0].Id, 
-        OrderDate = DateTime.Parse(splitLine[1]), OrderValue = decimal.Parse(splitLine[2]) });
+    
 }
-await context.SaveChangesAsync();
-Console.WriteLine("Added orders");
-
 
 //Create the model class
 
